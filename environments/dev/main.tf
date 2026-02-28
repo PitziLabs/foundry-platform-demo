@@ -21,3 +21,13 @@ provider "aws" {
     }
   }
 }
+module "vpc" {
+  source = "../../modules/vpc"
+
+  project     = var.project
+  environment = var.environment
+
+  availability_zones = ["us-east-1a", "us-east-1b"]
+
+  # Using defaults for all CIDRs — override here if needed
+}
