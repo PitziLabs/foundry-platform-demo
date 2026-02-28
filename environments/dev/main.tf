@@ -72,3 +72,49 @@ module "security_groups" {
   project     = var.project
   vpc_id      = module.vpc.vpc_id
 }
+# --- Phase 3: Compute & Containers ---
+module "ecr" {
+  source = "../../modules/ecr"
+
+  project     = var.project
+  environment = var.environment
+}
+
+module "dns" {
+  source = "../../modules/dns"
+
+  project     = var.project
+  environment = var.environment
+  domain_name = "hellavisible.net"
+
+  subject_alternative_names = ["*.hellavisible.net"]
+
+  create_alb_alias = true
+  alb_dns_name     = module.alb.alb_dns_name
+  alb_zone_id      = module.alb.alb_zone_id
+}
+module "alb" {
+  source = "../../modules/alb"
+
+  project           = var.project
+  environment       = var.environment
+  vpc_id            = module.vpc.vpc_id
+  public_subnet_ids = module.vpc.public_subnet_ids
+  security_group_id = module.security_groups.alb_security_group_id
+  certificate_arn   = module.dns.certificate_arn
+}
+module "ecs" {
+  source = "../../modules/ecs"
+
+  project     = var.project
+  environment = var.environment
+  aws_region  = var.aws_region
+
+  app_subnet_ids     = module.vpc.app_subnet_ids
+  security_group_id  = module.security_groups.app_security_group_id
+  target_group_arn   = module.alb.target_group_arn
+  ecr_repository_url = module.ecr.repository_url
+
+  task_execution_role_arn = module.iam.ecs_task_execution_role_arn
+  task_role_arn           = module.iam.ecs_task_role_arn
+}

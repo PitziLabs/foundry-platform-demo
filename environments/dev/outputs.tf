@@ -63,3 +63,36 @@ output "redis_security_group_id" {
   description = "Security group ID for Redis"
   value       = module.security_groups.redis_security_group_id
 }
+# Phase 3 outputs
+output "ecr_repository_url" {
+  description = "ECR repository URL for pushing container images"
+  value       = module.ecr.repository_url
+}
+output "route53_name_servers" {
+  description = "Nameservers to configure at Squarespace for hellavisible.net"
+  value       = module.dns.zone_name_servers
+}
+
+output "acm_certificate_arn" {
+  description = "ACM certificate ARN for ALB HTTPS listener"
+  value       = module.dns.certificate_arn
+}
+
+output "route53_zone_id" {
+  description = "Route 53 hosted zone ID"
+  value       = module.dns.zone_id
+}
+
+output "alb_dns_name" {
+  description = "ALB DNS name"
+  value       = module.alb.alb_dns_name
+}
+output "ecs_cluster_name" {
+  description = "ECS cluster name"
+  value       = module.ecs.cluster_name
+}
+
+output "ecs_service_name" {
+  description = "ECS service name"
+  value       = module.ecs.service_name
+}
