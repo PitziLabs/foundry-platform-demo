@@ -118,3 +118,15 @@ module "ecs" {
   task_execution_role_arn = module.iam.ecs_task_execution_role_arn
   task_role_arn           = module.iam.ecs_task_role_arn
 }
+module "ecs_autoscaling" {
+  source = "../../modules/ecs-autoscaling"
+
+  project     = var.project
+  environment = var.environment
+
+  ecs_cluster_name = module.ecs.cluster_name
+  ecs_service_name = module.ecs.service_name
+
+  min_capacity = 2
+  max_capacity = 6
+}
