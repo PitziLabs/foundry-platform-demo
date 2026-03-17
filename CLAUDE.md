@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-AWS Lab Infrastructure — a Terraform-based IaC project that builds a production-grade, three-tier AWS environment. Phases 0–2 (networking, encryption, IAM, secrets) are complete. Phases 3–7 (compute, data, observability, CI/CD, security hardening) have placeholder modules.
+AWS Lab Infrastructure — a Terraform-based IaC project that builds a production-grade, three-tier AWS environment. Phases 0–3 (networking, encryption, IAM, secrets, compute/containers) are complete. Phases 4–7 (data, observability, CI/CD, security hardening) have placeholder modules.
 
 ## Repository Structure
 
@@ -21,8 +21,11 @@ aws-lab-infra/
 │   ├── secrets/                # Secrets Manager for DB credentials
 │   ├── iam/                    # IAM roles (ECS execution, ECS task, GitHub OIDC)
 │   ├── security-groups/        # Identity-based SG rules (ALB→App→RDS/Redis)
-│   ├── alb/                    # [placeholder] Application Load Balancer
-│   ├── ecs/                    # [placeholder] ECS Fargate
+│   ├── ecr/                    # ECR repository with lifecycle policies
+│   ├── dns/                    # Route 53 hosted zone + ACM certificate (DNS validation)
+│   ├── alb/                    # Internet-facing ALB with HTTPS + HTTP→HTTPS redirect
+│   ├── ecs/                    # ECS Fargate cluster, task definition, service
+│   ├── ecs-autoscaling/        # Application Auto Scaling (CPU + memory target tracking)
 │   ├── rds/                    # [placeholder] PostgreSQL RDS
 │   ├── elasticache/            # [placeholder] Redis ElastiCache
 │   ├── cicd/                   # [placeholder] CI/CD pipelines
@@ -47,6 +50,7 @@ aws-lab-infra/
 | AWS profile | aws-lab |
 | State bucket | aws-lab-tfstate-{account-id} |
 | Lock table | aws-lab-tfstate-lock |
+| Domain | hellavisible.net |
 | GitHub org/repo | cpitzi/aws-lab-infra |
 
 ## Common Commands
@@ -72,18 +76,24 @@ terraform output
 
 ```
 VPC ──┐
-      ├──→ Security Groups
-KMS ──┤
-      ├──→ Secrets ──→ IAM
-      └──→ IAM (receives key ARN; returns role ARNs back to KMS)
+      ├──→ Security Groups ──→ ALB ──┐
+KMS ──┤                              ├──→ ECS ──→ ECS Autoscaling
+      ├──→ Secrets ──→ IAM ──────────┘     ↑
+      └──→ IAM (bidirectional with KMS)    │
+                                           │
+ECR ───────────────────────────────────────┘
+DNS ──→ ALB (certificate_arn)
+ALB ──→ DNS (alb_dns_name, alb_zone_id for alias record)
 ```
 
 The KMS ↔ IAM relationship is bidirectional: IAM needs the KMS key ARN for decrypt permissions, and the KMS key policy needs IAM role ARNs to grant encrypt/decrypt access.
 
+The DNS ↔ ALB relationship is also bidirectional: DNS provides the ACM certificate to ALB, and ALB provides its DNS name/zone ID back to DNS for the Route 53 alias record.
+
 ## Architecture Conventions
 
 ### Naming
-All resources: `{project}-{environment}-{resource-type}` (e.g., `aws-lab-dev-ecs-task-execution`).
+All resources: `{project}-{environment}-{resource-type}` (e.g., `aws-lab-dev-ecs-cluster`, `aws-lab-dev-alb`).
 
 ### Tagging
 Applied via provider `default_tags` in `environments/dev/main.tf`:
@@ -125,6 +135,42 @@ Four-statement structure: root account escape hatch, key admin (no crypto), Clou
 - 7-day recovery window (dev environment)
 - Placeholder values — will be seeded when RDS is created in Phase 4
 
+### ECR
+- Image scanning on push for CVE detection
+- Lifecycle policy retains the last 10 images (configurable)
+- `image_tag_mutability = MUTABLE` for dev convenience (override for prod)
+- `force_delete = true` for easy lab cleanup
+
+### DNS & TLS
+- Route 53 hosted zone for `hellavisible.net` with wildcard SAN (`*.hellavisible.net`)
+- ACM certificate with automated DNS validation (CNAME records)
+- `create_before_destroy` lifecycle on the certificate
+- Optional ALB alias record (bare domain → ALB)
+- Nameservers must be configured at the domain registrar (Squarespace)
+
+### ALB
+- Internet-facing in public subnets
+- HTTPS listener (443) with ACM certificate; HTTP listener (80) redirects to HTTPS
+- Target group uses `target_type = "ip"` for Fargate ENIs
+- Health check on `/` every 30s with 3 healthy/unhealthy thresholds
+- 30s deregistration delay for graceful connection draining
+
+### ECS Fargate
+- Cluster with Container Insights enabled for automatic CPU/memory metrics
+- Task definition: nginx container from ECR, `awsvpc` network mode
+- Service runs desired count (default 2) across app subnets with no public IPs
+- Rolling deployment: 50–200% capacity range
+- `ignore_changes` on `task_definition` and `desired_count` so CI/CD and auto-scaling can manage independently
+- `force_new_deployment = true` triggers deployment on every apply
+- CloudWatch log group with 30-day retention
+
+### ECS Auto-Scaling
+- Application Auto Scaling with target tracking on both CPU and memory
+- Default targets: 70% CPU, 70% memory utilization
+- Task count bounds: 2–6 (configurable)
+- Scale-out cooldown: 60s; scale-in cooldown: 300s (anti-flapping)
+- Both policies evaluated independently; the most aggressive wins
+
 ## Development Guidelines
 
 ### Adding a New Module
@@ -153,7 +199,7 @@ GitHub Actions authenticates to AWS via OIDC (no access keys stored as secrets).
 | 0 | Bootstrap backend, project structure | Complete |
 | 1 | VPC, KMS, Secrets Manager | Complete |
 | 2 | IAM roles, Security Groups | Complete |
-| 3 | ALB, ECS Fargate, ECR | Planned |
+| 3 | ECR, DNS/ACM, ALB, ECS Fargate, Auto-Scaling | Complete |
 | 4 | RDS PostgreSQL, ElastiCache Redis | Planned |
 | 5 | CloudWatch monitoring, alarms | Planned |
 | 6 | GitHub Actions CI/CD workflows | Planned |
