@@ -1,0 +1,100 @@
+# .github/workflows/deploy.yml
+#
+# Build & Deploy: Ice Cream Cookbook → ECR → ECS Fargate
+#
+# Triggers on push to main. Authenticates via OIDC (no stored secrets).
+# Builds the Astro static site, packages it in an nginx container,
+# pushes to ECR, and tells ECS to roll out a new deployment.
+
+name: Build & Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:  # Manual trigger for testing
+
+permissions:
+  id-token: write   # Required for OIDC authentication
+  contents: read     # Required to checkout the repo
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPO: aws-lab-dev-app
+  ECS_CLUSTER: aws-lab-dev-cluster
+  ECS_SERVICE: aws-lab-dev-app
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # --- Checkout both repos ---
+      - name: Checkout infra repo
+        uses: actions/checkout@v4
+
+      - name: Clone cookbook recipes
+        run: git clone https://github.com/cpitzi/ice_cream_book.git /tmp/ice_cream_book
+
+      # --- Build the Astro static site ---
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Astro dependencies
+        working-directory: app/ice_cream_site
+        run: npm ci
+
+      - name: Sync recipes into Astro content
+        working-directory: app/ice_cream_site
+        run: python3 sync_recipes.py
+        env:
+          RECIPE_SOURCE: /tmp/ice_cream_book/recipes
+
+      - name: Build static site
+        working-directory: app/ice_cream_site
+        run: npx astro build
+
+      # --- Authenticate to AWS via OIDC ---
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::365184644049:role/aws-lab-dev-github-actions
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # --- Build and push Docker image ---
+      - name: Build and push container image
+        env:
+          REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build \
+            -f app/Dockerfile \
+            -t $REGISTRY/$ECR_REPO:latest \
+            -t $REGISTRY/$ECR_REPO:$IMAGE_TAG \
+            app/
+
+          docker push $REGISTRY/$ECR_REPO:latest
+          docker push $REGISTRY/$ECR_REPO:$IMAGE_TAG
+
+      # --- Deploy to ECS ---
+      - name: Force new ECS deployment
+        run: |
+          aws ecs update-service \
+            --cluster $ECS_CLUSTER \
+            --service $ECS_SERVICE \
+            --force-new-deployment \
+            --region $AWS_REGION
+
+      - name: Wait for deployment to stabilize
+        run: |
+          echo "Waiting for ECS service to stabilize..."
+          aws ecs wait services-stable \
+            --cluster $ECS_CLUSTER \
+            --services $ECS_SERVICE \
+            --region $AWS_REGION
+          echo "Deployment complete!"
