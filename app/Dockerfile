@@ -1,25 +1,18 @@
-# Stage 1: Build the Astro static site
-FROM node:20-alpine AS build
+# Dockerfile for the cookbook site
+#
+# This is a SIMPLE Dockerfile — no multi-stage build needed because
+# CI/CD builds the Astro site before Docker runs. We just copy the
+# pre-built static files into nginx.
+#
+# The Astro build happens in the GitHub Action (Node environment).
+# Docker's only job: package the output into a serving container.
 
-WORKDIR /app
-COPY ice_cream_site/package*.json ./
-RUN npm ci
-COPY ice_cream_site/ ./
-
-# Sync recipes from the book repo into Astro content
-COPY ice_cream_book/recipes/ /tmp/recipes/
-# The sync script expects ../ice_cream_book/recipes/ relative to ice_cream_site/
-# So we adjust: copy recipes into the expected location
-RUN mkdir -p /tmp/ice_cream_book/recipes && cp /tmp/recipes/*.md /tmp/ice_cream_book/recipes/
-RUN cd /app && PYTHONDONTWRITEBYTECODE=1 python3 sync_recipes.py || true
-
-RUN npx astro build
-
-# Stage 2: Serve with Nginx on port 8080
 FROM nginx:latest
 
-# Match existing infra contract: port 8080, /health endpoint
-COPY app/nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=build /app/dist /usr/share/nginx/html
+# Copy the nginx config (port 8080, /health endpoint, clean URLs)
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Copy pre-built static site from Astro
+COPY ice_cream_site/dist/ /usr/share/nginx/html/
 
 EXPOSE 8080
