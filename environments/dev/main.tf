@@ -188,3 +188,15 @@ module "monitoring" {
   # ElastiCache dimensions
   elasticache_replication_group_id = module.elasticache.replication_group_id
 }
+
+module "cloudtrail" {
+  source = "../../modules/cloudtrail"
+
+  project     = var.project
+  environment = var.environment
+
+  s3_bucket_name = module.s3.bucket_id
+  s3_bucket_arn  = module.s3.bucket_arn
+  kms_key_arn    = module.kms.key_arn
+  aws_account_id = data.aws_caller_identity.current.account_id
+}

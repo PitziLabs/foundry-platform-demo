@@ -108,6 +108,50 @@ resource "aws_kms_key" "main" {
               "kms:EncryptionContext:aws:logs:arn" = "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:*"
             }
           }
+        },
+
+        # -----------------------------------------------------------------
+        # Statement 4: CloudTrail service principal — encrypt
+        #
+        # CloudTrail needs GenerateDataKey* to encrypt log files before
+        # delivering them to S3. The condition scopes this to trails in
+        # THIS account only, preventing cross-account abuse.
+        #
+        # We intentionally don't use aws:SourceArn here because it would
+        # create a circular dependency: the trail references the KMS key,
+        # and the KMS key policy would reference the trail ARN. The
+        # EncryptionContext condition is sufficient for single-account use.
+        # -----------------------------------------------------------------
+        {
+          Sid    = "AllowCloudTrailEncrypt"
+          Effect = "Allow"
+          Principal = {
+            Service = "cloudtrail.amazonaws.com"
+          }
+          Action   = "kms:GenerateDataKey*"
+          Resource = "*"
+          Condition = {
+            StringLike = {
+              "kms:EncryptionContext:aws:cloudtrail:arn" = "arn:aws:cloudtrail:*:${var.aws_account_id}:trail/*"
+            }
+          }
+        },
+
+        # -----------------------------------------------------------------
+        # Statement 5: CloudTrail service principal — describe
+        #
+        # CloudTrail calls DescribeKey to verify the key exists and is
+        # usable before attempting encryption. This is a read-only
+        # metadata operation — no data access.
+        # -----------------------------------------------------------------
+        {
+          Sid    = "AllowCloudTrailDescribeKey"
+          Effect = "Allow"
+          Principal = {
+            Service = "cloudtrail.amazonaws.com"
+          }
+          Action   = "kms:DescribeKey"
+          Resource = "*"
         }
       ],
 
