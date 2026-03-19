@@ -143,3 +143,8 @@ output "sns_topic_arn" {
   description = "SNS alerting topic ARN"
   value       = module.monitoring.sns_topic_arn
 }
+
+output "cloudtrail_arn" {
+  description = "CloudTrail trail ARN"
+  value       = module.cloudtrail.trail_arn
+}

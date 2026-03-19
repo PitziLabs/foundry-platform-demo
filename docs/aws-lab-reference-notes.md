@@ -135,8 +135,12 @@
 | Email subscription confirmed | Yes (2026-03-19) |
 | CloudWatch alarms (8 total) | ecs-cpu-high, ecs-memory-high, alb-5xx-high, alb-response-slow, rds-cpu-high, rds-storage-low, cache-cpu-high, cache-memory-high |
 | Alarm naming pattern | aws-lab-dev-{service}-{metric} |
-| CloudTrail name | _TBD (Phase 5c)_ |
-| CloudTrail S3 prefix | _TBD (Phase 5c)_ |
+| CloudTrail trail name | aws-lab-dev-trail |
+| CloudTrail S3 prefix | cloudtrail |
+| CloudTrail S3 path | s3://aws-lab-dev-365184644049/cloudtrail/AWSLogs/365184644049/ |
+| CloudTrail multi-region | Yes |
+| CloudTrail log file validation | Yes |
+| CloudTrail encryption | KMS (CMK) |
 | AWS Config recorder | _TBD (Phase 5d)_ |
 
 ---
@@ -186,6 +190,12 @@ _Quick-reference for architectural decisions made along the way. Full ADRs live 
 | 26 | EngineCPUUtilization over CPUUtilization for ElastiCache | Valkey/Redis is single-threaded. Host CPU can be misleadingly low on multi-vCPU nodes while the engine thread is saturated. EngineCPUUtilization isolates the engine's thread. | 2026-03-19 |
 | 27 | ok_actions on all alarms (not just alarm_actions) | Sends recovery notifications so you know when an issue resolves itself, not just when it starts. Complete operational picture. | 2026-03-19 |
 | 28 | 3 evaluation periods for most alarms | Avoids false positives from brief spikes. Three consecutive breaching periods confirms a real trend before alerting. | 2026-03-19 |
+| 29 | Direct KMS encryption on CloudTrail (kms_key_id) over S3-only encryption | Defense-in-depth: logs are encrypted by CloudTrail before S3 delivery, not just at rest. Stronger portfolio signal; demonstrates KMS service principal integration. | 2026-03-19 |
+| 30 | is_multi_region_trail = true | IAM and other global services emit events in us-east-1 regardless of deployment region. Multi-region ensures complete audit coverage. | 2026-03-19 |
+| 31 | enable_log_file_validation = true | Creates hourly digest files with SHA-256 hashes for tamper detection. Required by most compliance frameworks (SOC 2, PCI DSS, HIPAA). | 2026-03-19 |
+| 32 | Management events only (no data events) | Data events (S3 object ops, Lambda invocations) would generate massive volume and cost for a lab. Management events cover the resource-level audit questions. | 2026-03-19 |
+| 33 | S3 bucket policy owned by CloudTrail module (not S3 module) | Keeps the S3 module general-purpose. The consumer (CloudTrail) manages its own access. If AWS Config also needs bucket access, we'll consolidate into a shared policy. | 2026-03-19 |
+| 34 | EncryptionContext condition (not aws:SourceArn) on KMS key policy | Avoids circular dependency: trail needs key ARN, and SourceArn condition would need trail ARN. EncryptionContext scoped to account is sufficient for single-account use. | 2026-03-19 |
 
 ---
 
@@ -198,6 +208,7 @@ _Quick-reference for architectural decisions made along the way. Full ADRs live 
 | 2026-02-28 | ~$112/mo | Phase 3 adds: ALB (~$20/mo), Route 53 hosted zone ($0.50/mo), ECS Fargate 2x 0.25vCPU/512MiB (~$25/mo). ACM certs are free. ECR storage negligible. |
 | 2026-03-19 | ~$143/mo | Phase 4a adds: RDS db.t4g.micro Multi-AZ (~$28/mo), gp3 storage (~$2.30/mo), backups + managed secret (~$0.80/mo). |
 | 2026-03-19 | ~$144/mo | Phase 5a+5b adds: 8 CloudWatch alarms (~$0.80/mo). SNS email delivery free. |
+| 2026-03-19 | ~$144/mo | Phase 5c adds: CloudTrail (first trail free for management events). S3 storage negligible. |
 
 ---
 
@@ -233,7 +244,8 @@ modules/
 ├── rds/              # Phase 4: PostgreSQL Multi-AZ with RDS-managed credentials
 ├── s3/               # Phase 4: General-purpose bucket with KMS encryption
 ├── elasticache/      # Phase 4: Valkey replication group with encryption
-└── monitoring/       # Phase 5: SNS topic + 8 CloudWatch alarms (ECS, ALB, RDS, ElastiCache)
+├── monitoring/       # Phase 5: SNS topic + 8 CloudWatch alarms (ECS, ALB, RDS, ElastiCache)
+└── cloudtrail/       # Phase 5: API audit trail with S3 delivery and KMS encryption
 ```
 
 ---
@@ -276,6 +288,8 @@ _Operational knowledge for day-to-day work with this environment._
 | **SNS subscription on recreate** | After `terraform destroy` + `terraform apply`, the SNS email subscription is recreated in "pending confirmation" state. No alarms are delivered until you click the confirmation link in the new email from AWS. Check Gmail immediately after apply. |
 | **Testing alarm pipeline** | `aws cloudwatch set-alarm-state --alarm-name "aws-lab-dev-ecs-cpu-high" --state-value ALARM --state-reason "Test" --profile aws-lab` — Forces alarm to ALARM state. Auto-recovers on next evaluation period. Useful for validating the SNS→email chain. |
 | **INSUFFICIENT_DATA alarms** | Normal after fresh deploy. Alarms need 1–3 evaluation periods of metric data before transitioning to OK. RDS and ElastiCache alarms may take 5–15 minutes to settle. |
+| **CloudTrail first delivery** | After `terraform apply`, CloudTrail takes 5–15 minutes to deliver the first log files to S3. Check with `aws s3 ls s3://aws-lab-dev-365184644049/cloudtrail/AWSLogs/365184644049/ --recursive --profile aws-lab`. |
+| **CloudTrail verification** | `aws cloudtrail get-trail-status --name aws-lab-dev-trail --profile aws-lab` — should show `IsLogging: true` and `LatestDeliveryTime` populated within ~15 minutes. |
 
 ---
 
