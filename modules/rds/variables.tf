@@ -40,13 +40,19 @@ variable "allocated_storage" {
 variable "engine_version" {
   description = "PostgreSQL engine version"
   type        = string
-  default     = "16.4"
+  default     = "16"
 }
 
 variable "db_name" {
   description = "Name of the initial database to create"
   type        = string
-  default     = "app"
+  default     = "awslab"
+}
+
+variable "master_username" {
+  description = "Master username for the RDS instance"
+  type        = string
+  default     = "dbadmin"
 }
 
 variable "multi_az" {

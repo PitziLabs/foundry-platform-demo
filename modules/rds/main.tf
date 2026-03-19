@@ -48,6 +48,19 @@ resource "aws_db_parameter_group" "main" {
     value = "1"
   }
 
+  # Log all DDL statements (CREATE, ALTER, DROP)
+  parameter {
+    name  = "log_statement"
+    value = "ddl"
+  }
+
+  # Enable pg_stat_statements for query performance tracking
+  parameter {
+    name  = "shared_preload_libraries"
+    value = "pg_stat_statements"
+    apply_method = "pending-reboot"
+  }
+
   tags = {
     Name = "${var.project}-${var.environment}-pg16"
   }
@@ -67,8 +80,9 @@ resource "aws_db_instance" "main" {
   instance_class = var.instance_class
 
   # Storage
-  allocated_storage = var.allocated_storage
-  storage_type      = "gp3"
+  allocated_storage     = var.allocated_storage
+  max_allocated_storage = 100
+  storage_type          = "gp3"
   storage_encrypted = true
   kms_key_id        = var.kms_key_arn
 
@@ -77,7 +91,7 @@ resource "aws_db_instance" "main" {
 
   # Credentials — RDS manages the master password and stores it in
   # Secrets Manager automatically. No password in Terraform state.
-  username                    = "dbadmin"
+  username                      = var.master_username
   manage_master_user_password = true
   master_user_secret_kms_key_id = var.kms_key_arn
 
@@ -103,10 +117,9 @@ resource "aws_db_instance" "main" {
   allow_major_version_upgrade = false
 
   # Protection
-  deletion_protection      = true
-  skip_final_snapshot      = false
-  final_snapshot_identifier = "${var.project}-${var.environment}-postgres-final"
-  copy_tags_to_snapshot    = true
+  deletion_protection   = false
+  skip_final_snapshot   = true
+  copy_tags_to_snapshot = true
 
   # Performance Insights (free tier for db.t4g.micro)
   performance_insights_enabled    = true
