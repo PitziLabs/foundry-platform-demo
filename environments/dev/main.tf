@@ -62,7 +62,7 @@ module "iam" {
   aws_region                = var.aws_region
   kms_key_arn               = module.kms.key_arn
   db_credentials_secret_arn = module.secrets.db_credentials_secret_arn
-  github_org                = "cpitzi"
+  github_org                = "PitziLabs"
   github_repo               = "aws-lab-infra"
 
   # Phase 4: grant ECS roles access to RDS-managed secrets
