@@ -43,7 +43,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Clone cookbook recipes
-        run: git clone https://github.com/cpitzi/ice_cream_book.git /tmp/ice_cream_book
+        run: git clone https://github.com/PitziLabs/ice_cream_book.git /tmp/ice_cream_book
 
       # --- Build the Astro static site ---
       - name: Setup Node
