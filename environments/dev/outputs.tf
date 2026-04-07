@@ -44,6 +44,11 @@ output "github_actions_role_arn" {
   description = "ARN of the GitHub Actions OIDC role"
   value       = module.iam.github_actions_role_arn
 }
+
+output "github_actions_terraform_role_arn" {
+  description = "GitHub Actions Terraform pipeline role ARN for CI/CD"
+  value       = module.iam.github_actions_terraform_role_arn
+}
 output "alb_security_group_id" {
   description = "Security group ID for ALB"
   value       = module.security_groups.alb_security_group_id
