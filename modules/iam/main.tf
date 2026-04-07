@@ -354,3 +354,119 @@ resource "aws_iam_role_policy_attachment" "github_actions" {
   role       = aws_iam_role.github_actions.name
   policy_arn = aws_iam_policy.github_actions.arn
 }
+
+
+# =============================================================================
+# GITHUB ACTIONS TERRAFORM PIPELINE ROLE
+#
+# A separate role for the Terraform infrastructure pipeline (terraform.yml),
+# distinct from the app deploy role above. This role has broad infrastructure
+# management permissions because Terraform needs to create/modify/destroy
+# AWS resources across many services.
+#
+# Security boundary: OIDC trust is scoped to the 'terraform' GitHub
+# environment, so only workflows running with `environment: terraform`
+# can assume this role. This separates infrastructure management
+# permissions from app deploy permissions (blast radius reduction).
+# =============================================================================
+
+data "aws_iam_policy_document" "github_actions_terraform_assume" {
+  statement {
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+
+    principals {
+      type        = "Federated"
+      identifiers = [aws_iam_openid_connect_provider.github.arn]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:sub"
+      values   = ["repo:${var.github_org}/${var.github_repo}:environment:terraform"]
+    }
+  }
+}
+
+resource "aws_iam_role" "github_actions_terraform" {
+  name               = "${var.project}-${var.environment}-github-actions-terraform"
+  assume_role_policy = data.aws_iam_policy_document.github_actions_terraform_assume.json
+
+  max_session_duration = 3600
+
+  tags = {
+    Name = "${var.project}-${var.environment}-github-actions-terraform"
+  }
+}
+
+data "aws_iam_policy_document" "github_actions_terraform" {
+  statement {
+    sid    = "TerraformInfraManagement"
+    effect = "Allow"
+
+    actions = [
+      "ec2:*",
+      "elasticloadbalancing:*",
+      "ecs:*",
+      "ecr:*",
+      "rds:*",
+      "elasticache:*",
+      "route53:*",
+      "acm:*",
+      "iam:*",
+      "kms:*",
+      "cloudwatch:*",
+      "logs:*",
+      "cloudtrail:*",
+      "sns:*",
+      "config:*",
+      "s3:*",
+      "secretsmanager:*",
+      "application-autoscaling:*",
+    ]
+
+    resources = ["*"]
+  }
+
+  statement {
+    sid    = "TerraformStateLock"
+    effect = "Allow"
+
+    actions = [
+      "dynamodb:GetItem",
+      "dynamodb:PutItem",
+      "dynamodb:DeleteItem",
+      "dynamodb:DescribeTable",
+    ]
+
+    resources = [
+      "arn:aws:dynamodb:${var.aws_region}:${var.aws_account_id}:table/aws-lab-tfstate-lock",
+    ]
+  }
+
+  statement {
+    sid       = "CallerIdentity"
+    effect    = "Allow"
+    actions   = ["sts:GetCallerIdentity"]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_policy" "github_actions_terraform" {
+  name   = "${var.project}-${var.environment}-github-actions-terraform"
+  policy = data.aws_iam_policy_document.github_actions_terraform.json
+
+  tags = {
+    Name = "${var.project}-${var.environment}-github-actions-terraform"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "github_actions_terraform" {
+  role       = aws_iam_role.github_actions_terraform.name
+  policy_arn = aws_iam_policy.github_actions_terraform.arn
+}
