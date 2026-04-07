@@ -220,8 +220,8 @@ module "aws_config" {
 module "budgets" {
   source = "../../modules/budgets"
 
-  project               = local.project
-  environment           = local.environment
+  project               = var.project
+  environment           = var.environment
   monthly_budget_amount = "100"
   sns_topic_arn         = module.monitoring.sns_topic_arn
 }
