@@ -196,6 +196,22 @@ module "monitoring" {
   elasticache_replication_group_id = module.elasticache.replication_group_id
 }
 
+module "dashboard" {
+  source = "../../modules/dashboard"
+
+  project     = var.project
+  environment = var.environment
+
+  ecs_cluster_name                 = module.ecs.cluster_name
+  ecs_service_name                 = module.ecs.service_name
+  alb_arn_suffix                   = module.alb.alb_arn_suffix
+  target_group_arn_suffix          = module.alb.target_group_arn_suffix
+  db_instance_identifier           = module.rds.instance_id
+  elasticache_replication_group_id = module.elasticache.replication_group_id
+  waf_web_acl_name                 = module.waf.web_acl_name
+  nat_gateway_ids                  = module.vpc.nat_gateway_ids
+}
+
 module "cloudtrail" {
   source = "../../modules/cloudtrail"
 
