@@ -5,6 +5,5 @@ terraform {
     region         = "us-east-1"
     dynamodb_table = "aws-lab-tfstate-lock"
     encrypt        = true
-    profile        = "aws-lab"
   }
 }
