@@ -428,8 +428,8 @@ data "aws_iam_policy_document" "github_actions_terraform" {
       "s3:*",
       "secretsmanager:*",
       "budgets:*",
-      "waf-regional:*",
       "wafv2:*",
+      "waf-regional:*",
       "application-autoscaling:*",
     ]
 

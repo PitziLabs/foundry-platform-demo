@@ -1,3 +1,4 @@
+# Dummy comment to test CI workflows — safe to remove
 terraform {
   required_version = ">= 1.0"
 
@@ -11,7 +12,6 @@ terraform {
 
 provider "aws" {
   region  = var.aws_region
-  profile = "aws-lab"
 
   default_tags {
     tags = {
@@ -196,6 +196,22 @@ module "monitoring" {
   elasticache_replication_group_id = module.elasticache.replication_group_id
 }
 
+module "dashboard" {
+  source = "../../modules/dashboard"
+
+  project     = var.project
+  environment = var.environment
+
+  ecs_cluster_name                 = module.ecs.cluster_name
+  ecs_service_name                 = module.ecs.service_name
+  alb_arn_suffix                   = module.alb.alb_arn_suffix
+  target_group_arn_suffix          = module.alb.target_group_arn_suffix
+  db_instance_identifier           = module.rds.instance_id
+  elasticache_replication_group_id = module.elasticache.replication_group_id
+  waf_web_acl_name                 = module.waf.web_acl_name
+  nat_gateway_ids                  = module.vpc.nat_gateway_ids
+}
+
 module "cloudtrail" {
   source = "../../modules/cloudtrail"
 
@@ -224,6 +240,15 @@ module "budgets" {
   environment           = var.environment
   monthly_budget_amount = "100"
   sns_topic_arn         = module.monitoring.sns_topic_arn
+}
+
+# --- Phase 7: Security Hardening ---
+module "waf" {
+  source = "../../modules/waf"
+
+  project     = var.project
+  environment = var.environment
+  alb_arn     = module.alb.alb_arn
 }
 
 moved {
