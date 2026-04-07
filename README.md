@@ -1,213 +1,161 @@
-# AWS Lab Infrastructure
+# aws-lab-infra
 
-Production-grade, three-tier AWS environment built entirely with Terraform. Designed as a learning lab that follows real-world patterns: multi-AZ networking, least-privilege IAM, encrypted secrets, containerized workloads on Fargate, and auto-scaling — all wired together through modular, reusable Terraform code.
+A production-grade, Terraform-managed AWS environment built as a portfolio project and learning lab. It hosts a live application at [icecreamtofightover.com](https://icecreamtofightover.com) and demonstrates the kind of infrastructure an ops veteran builds when they bring decades of production experience to modern cloud tooling.
+
+## Why This Exists
+
+Built by an infrastructure operations professional with 25+ years of production experience — bare-metal data centers, 24x7 ops, single-homed environments where every decision had physical consequences. This project bridges that experience into cloud-native architecture: not by reading about it, but by building it, breaking it, and operating it with real traffic.
+
+Everything here reflects how a production environment should be built, scaled down to a single-account learning lab. No shortcuts on security posture. No placeholder modules. Real CI/CD, real monitoring, real cost controls.
+
+## What's Deployed
+
+A three-tier web application running on AWS, fully managed by Terraform:
+
+**Networking:** VPC with public, application, and data subnets across two AZs. NAT Gateways for private subnet egress. VPC Flow Logs for network visibility.
+
+**Compute:** ECS Fargate running an Astro/Nginx application behind an Application Load Balancer with HTTPS (ACM certificate, Route 53 DNS). Auto-scaling on CPU and memory thresholds.
+
+**Data:** RDS PostgreSQL and ElastiCache (Valkey) in private subnets. Secrets Manager for credential management.
+
+**Security:** WAFv2 Web ACL on the ALB with AWS Managed Rules (Common Rule Set, Known Bad Inputs, IP Reputation List) and a custom rate-limiting rule. KMS customer-managed key for encryption at rest. Security groups with least-privilege chaining — each tier can only reach the tier it needs.
+
+**Observability:** CloudWatch dashboard covering ECS, ALB, WAF, RDS, ElastiCache, and NAT Gateway metrics. CloudWatch alarms with SNS email notifications. CloudTrail for API audit logging. AWS Config for compliance rules.
+
+**Cost Management:** AWS Budgets with SNS alerts at 50%, 80%, and 100% of a $100/month threshold.
+
+**CI/CD:** Two GitHub Actions pipelines with OIDC authentication (no stored credentials):
+- **App deploy** — builds and deploys the container on content changes, with cross-repo dispatch from the content source repository
+- **Terraform** — plans on PR (with plan output posted as a PR comment), applies on merge to main. Separate IAM role scoped to the `terraform` GitHub environment via OIDC sub-claim.
 
 ## Architecture
 
 ```
-                        Internet
-                           │
-                      ┌────┴────┐
-                      │ Route 53│  icecreamtofightover.com
-                      └────┬────┘
-                           │
-                    ┌──────┴──────┐
-                    │  ACM (TLS)  │
-                    └──────┬──────┘
-                           │
-               ┌───────────┴───────────┐
-               │    ALB (public tier)   │  HTTPS :443, HTTP :80 → redirect
-               │   us-east-1a / 1b     │
-               └───────────┬───────────┘
-                           │
-               ┌───────────┴───────────┐
-               │  ECS Fargate (app tier)│  2–6 tasks, auto-scaled
-               │   us-east-1a / 1b     │  CPU + memory target tracking
-               └───────────┬───────────┘
-                           │
-               ┌───────────┴───────────┐
-               │   Data tier (planned)  │  RDS PostgreSQL, ElastiCache Redis
-               │   us-east-1a / 1b     │
-               └───────────────────────┘
-
-    ECR ──→ container images
-    KMS ──→ encryption at rest
-    Secrets Manager ──→ DB credentials
-    IAM ──→ least-privilege roles (ECS exec, ECS task, GitHub OIDC)
-    CloudWatch ──→ container logs + Container Insights
+┌─────────────────────────────────────────────────────────────┐
+│  GitHub Actions                                             │
+│  ┌──────────────┐  ┌──────────────┐                        │
+│  │ App Deploy   │  │ Terraform    │                        │
+│  │ (OIDC Role A)│  │ (OIDC Role B)│                        │
+│  └──────┬───────┘  └──────┬───────┘                        │
+└─────────┼─────────────────┼────────────────────────────────┘
+          │                 │
+          ▼                 ▼
+┌─────────────────────────────────────────────────────────────┐
+│  AWS Account (us-east-1)                                    │
+│                                                             │
+│  ┌─── WAF ──────────────────────────────────────────────┐   │
+│  │                                                      │   │
+│  │  ┌─── Public Subnets (2 AZs) ────────────────────┐  │   │
+│  │  │  ALB (HTTPS) ──── Route 53 ──── ACM           │  │   │
+│  │  │  Internet Gateway                              │  │   │
+│  │  └────────────────────┬───────────────────────────┘  │   │
+│  │                       │                              │   │
+│  └───────────────────────┼──────────────────────────────┘   │
+│                          │                                  │
+│  ┌─── App Subnets (2 AZs) ──────────────────────────────┐  │
+│  │  ECS Fargate (Astro/Nginx)                            │  │
+│  │  NAT Gateways → Internet                              │  │
+│  └────────────────────┬──────────────────────────────────┘  │
+│                       │                                     │
+│  ┌─── Data Subnets (2 AZs) ─────────────────────────────┐  │
+│  │  RDS PostgreSQL    ElastiCache (Valkey)               │  │
+│  │  Secrets Manager   KMS                                │  │
+│  └───────────────────────────────────────────────────────┘  │
+│                                                             │
+│  ┌─── Observability ────────────────────────────────────┐   │
+│  │  CloudWatch Dashboard + Alarms    CloudTrail          │  │
+│  │  AWS Config Rules                 SNS Alerts          │  │
+│  │  AWS Budgets                      VPC Flow Logs       │  │
+│  └───────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### Network Layout
-
-| Tier | Subnets | CIDR Blocks | Purpose |
-|------|---------|-------------|---------|
-| Public | 2 | 10.0.1.0/24, 10.0.2.0/24 | ALB, NAT Gateways |
-| App | 2 | 10.0.10.0/24, 10.0.11.0/24 | ECS Fargate tasks (private) |
-| Data | 2 | 10.0.20.0/24, 10.0.21.0/24 | RDS, ElastiCache (private) |
-
-Each AZ has its own NAT Gateway to avoid cross-AZ bottlenecks and egress charges.
-
-## Modules
-
-| Module | Description | Status |
-|--------|-------------|--------|
-| `vpc` | Three-tier VPC with public/app/data subnets, NAT Gateways, flow logs | Complete |
-| `kms` | Customer-managed encryption key with scoped key policy | Complete |
-| `secrets` | Secrets Manager for database credentials (KMS-encrypted) | Complete |
-| `iam` | ECS execution role, ECS task role, GitHub Actions OIDC role | Complete |
-| `security-groups` | Identity-based SG rules (ALB → App → RDS/Redis) | Complete |
-| `ecr` | Container registry with scan-on-push and lifecycle policies | Complete |
-| `dns` | Route 53 hosted zone + ACM certificate with DNS validation | Complete |
-| `alb` | Internet-facing ALB with HTTPS listener and HTTP redirect | Complete |
-| `ecs` | Fargate cluster, task definition, service with rolling deploys | Complete |
-| `ecs-autoscaling` | CPU + memory target-tracking scaling (2–6 tasks) | Complete |
-| `rds` | PostgreSQL database | Planned |
-| `elasticache` | Redis cache | Planned |
-| `monitoring` | CloudWatch dashboards and alarms | Planned |
-| `cicd` | GitHub Actions CI/CD workflows | Planned |
-| `security` | WAF, Shield, GuardDuty | Planned |
-
-### Module Dependency Graph
+## Repository Structure
 
 ```
-VPC ──┐
-      ├──→ Security Groups ──→ ALB ──┐
-KMS ──┤                              ├──→ ECS ──→ ECS Autoscaling
-      ├──→ Secrets ──→ IAM ──────────┘     ↑
-      └──→ IAM (bidirectional with KMS)    │
-                                           │
-ECR ───────────────────────────────────────┘
-DNS ←──→ ALB (certificate ↔ alias record)
+aws-lab-infra/
+├── environments/
+│   └── dev/
+│       ├── main.tf              # Root module — wires all modules together
+│       ├── variables.tf         # Environment-specific variables
+│       ├── outputs.tf           # Exported values
+│       └── terraform.tfvars     # Variable values for dev
+├── modules/
+│   ├── alb/                     # Application Load Balancer + listeners
+│   ├── aws-config/              # AWS Config recorder + compliance rules
+│   ├── budgets/                 # AWS Budgets with SNS alerts
+│   ├── cloudtrail/              # CloudTrail audit logging
+│   ├── dashboard/               # CloudWatch operational dashboard
+│   ├── dns/                     # Route 53 + ACM certificate
+│   ├── ecr/                     # Container registry + lifecycle policy
+│   ├── ecs/                     # ECS cluster, service, task definition
+│   ├── ecs-autoscaling/         # Application Auto Scaling policies
+│   ├── elasticache/             # ElastiCache (Valkey) replication group
+│   ├── iam/                     # IAM roles, policies, OIDC provider
+│   ├── kms/                     # KMS customer-managed key
+│   ├── monitoring/              # CloudWatch alarms + SNS topic
+│   ├── rds/                     # RDS PostgreSQL instance
+│   ├── s3/                      # S3 bucket with encryption + lifecycle
+│   ├── secrets/                 # Secrets Manager
+│   ├── security-groups/         # Security group rules (all SG logic here)
+│   ├── vpc/                     # VPC, subnets, NAT Gateways, flow logs
+│   └── waf/                     # WAFv2 Web ACL + ALB association
+├── .github/
+│   └── workflows/
+│       ├── deploy.yml           # App deploy pipeline
+│       ├── terraform.yml        # Terraform plan/apply pipeline
+│       └── dispatch-deploy.yml  # Cross-repo dispatch receiver
+└── docs/
+    └── BOOTSTRAP.md             # Deployment runbook (start here)
 ```
 
-## Prerequisites
+## Design Decisions
 
-- [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.0
-- AWS CLI configured with a named profile `aws-lab`
-- An AWS account with permissions to create VPCs, IAM roles, ECS clusters, etc.
-- A registered domain with nameservers pointed to the Route 53 hosted zone
+### Separate IAM Roles for App Deploy and Terraform
+
+The app deploy role can push containers and update ECS services. The Terraform role can manage infrastructure. Neither can do the other's job. The blast radius of a compromised pipeline is limited to its scope.
+
+### OIDC Authentication, No Stored Secrets
+
+Both pipelines authenticate via GitHub's OIDC provider. No AWS access keys in GitHub Secrets. The Terraform role's trust policy is scoped to the `terraform` GitHub environment, so only the `terraform.yml` workflow can assume it.
+
+### Service-Level IAM Wildcards on the Terraform Role
+
+The real security boundary is the OIDC sub-claim scoping, not per-action IAM restrictions. Service-level wildcards (`ec2:*`, `ecs:*`, etc.) keep the policy maintainable as modules evolve, while the OIDC trust ensures only the intended workflow can assume the role.
+
+### One Module Per Domain
+
+Security groups are centralized in one module to avoid Terraform resource conflicts. Each infrastructure domain (networking, compute, data, observability) has its own module with clear inputs and outputs.
+
+### WAF with Managed Rules, Not Custom Rules
+
+AWS Managed Rule Groups are free, auto-updated by AWS's threat research team, and cover the OWASP Top 10. Custom rules add complexity without meaningful benefit for a static content site. The rate-limiting rule is the only custom rule — simple and effective.
+
+### CloudWatch Over Third-Party Observability
+
+For a portfolio project demonstrating AWS skills, native CloudWatch is the right choice. The dashboard, alarms, and metrics all stay within the AWS ecosystem and demonstrate familiarity with the platform's observability tools.
+
+### Platform, Not a Single-App Deployment
+
+The infrastructure is deliberately decoupled from the application it hosts. The ECS cluster, ALB, data tier, and CI/CD pipelines are general-purpose — any containerized application can slot in by pushing an image to ECR and updating the task definition. A static Astro site, a Node.js API, a Python Flask service, or a scheduled batch job would all deploy through the same pipeline with different Dockerfiles. The cross-repo dispatch pattern already demonstrates this: content lives in a separate repository and triggers deployment independently. Adding a second application means adding a second task definition, target group, and listener rule — not rebuilding the platform. RDS and ElastiCache are available to any workload in the app subnets. The architecture is a foundation, not a one-off.
+
+### Daily Destroy/Apply Pattern
+
+This runs on personal money. The bootstrap runbook documents the tear-down and rebuild process. Terraform state persists in S3, so `terraform destroy` followed by `terraform apply` restores the full environment.
 
 ## Getting Started
 
-### 1. Bootstrap the Terraform Backend
+See [docs/BOOTSTRAP.md](docs/BOOTSTRAP.md) for the complete deployment runbook. It covers everything from AWS account setup through pipeline verification.
 
-Creates an S3 bucket (versioned, encrypted, private) and a DynamoDB table for state locking:
+## Cost
 
-```bash
-./scripts/bootstrap/bootstrap-backend.sh
-```
+With all resources running 24/7, the environment costs approximately $130-140/month. The largest line items are NAT Gateways (~$65), ALB (~$16), RDS (~$15), and ElastiCache (~$12). Budget alerts notify via email at 50%, 80%, and 100% of a $100/month threshold.
 
-### 2. Initialize and Apply
+## Related Repositories
 
-```bash
-cd environments/dev
-
-# Download providers and initialize backend
-terraform init
-
-# Preview changes
-terraform plan -out=tfplan
-
-# Apply
-terraform apply tfplan
-```
-
-### 3. Configure DNS
-
-After the first apply, retrieve the Route 53 nameservers and configure them at your domain registrar:
-
-```bash
-terraform output route53_name_servers
-```
-
-### 4. Push a Container Image
-
-```bash
-# Authenticate Docker to ECR
-aws ecr get-login-password --region us-east-1 --profile aws-lab | \
-  docker login --username AWS --password-stdin $(terraform output -raw ecr_repository_url)
-
-# Build, tag, and push
-docker build -t my-app .
-docker tag my-app:latest $(terraform output -raw ecr_repository_url):latest
-docker push $(terraform output -raw ecr_repository_url):latest
-```
-
-## Key Design Decisions
-
-### Security Groups Reference IDs, Not CIDRs
-Fargate tasks get new IPs on every deployment. Security group rules reference other security group IDs so they remain valid regardless of IP changes.
-
-### Separate Execution and Task Roles
-The ECS **execution role** handles infrastructure concerns (pulling images, writing logs, reading secrets). The **task role** is for application-level AWS API access and starts minimal.
-
-### ECS Service Ignores Task Definition and Desired Count
-`ignore_changes` on `task_definition` and `desired_count` lets CI/CD pipelines deploy new image versions and auto-scaling adjust task count without Terraform reverting those changes.
-
-### ACM Certificate Uses DNS Validation
-Fully automated — Terraform creates the Route 53 validation records and waits for certificate issuance. No manual approval or email confirmation required.
-
-### KMS Key Policy Structure
-Four statements: root account escape hatch, key admin (no crypto operations), CloudWatch Logs service principal, and conditional grants for ECS roles. This prevents lockout while maintaining least privilege.
-
-### Remote State with Locking
-State is stored in S3 (versioned, encrypted) with DynamoDB locking to prevent concurrent applies. The bootstrap script sets this up before Terraform ever runs.
-
-## Project Configuration
-
-| Setting | Value |
-|---------|-------|
-| Region | `us-east-1` |
-| AWS Profile | `aws-lab` |
-| Project Name | `aws-lab` |
-| Environment | `dev` |
-| Domain | `icecreamtofightover.com` |
-| State Bucket | `aws-lab-tfstate-365184644049` |
-| Lock Table | `aws-lab-tfstate-lock` |
-| Availability Zones | `us-east-1a`, `us-east-1b` |
-
-## Outputs
-
-After applying, key outputs are available via `terraform output`:
-
-| Output | Description |
-|--------|-------------|
-| `vpc_id` | VPC identifier |
-| `public_subnet_ids` | Public subnet IDs (ALB placement) |
-| `app_subnet_ids` | App subnet IDs (ECS task placement) |
-| `data_subnet_ids` | Data subnet IDs (RDS/Redis placement) |
-| `kms_key_arn` | KMS encryption key ARN |
-| `ecr_repository_url` | ECR URL for docker push/pull |
-| `alb_dns_name` | ALB DNS name |
-| `acm_certificate_arn` | ACM certificate ARN |
-| `route53_name_servers` | Nameservers for registrar config |
-| `ecs_cluster_name` | ECS cluster name |
-| `ecs_service_name` | ECS service name |
-
-## Roadmap
-
-- [ ] **Phase 4** — RDS PostgreSQL + ElastiCache Redis in data subnets
-- [ ] **Phase 5** — CloudWatch dashboards, alarms, and SNS notifications
-- [ ] **Phase 6** — GitHub Actions CI/CD (build, test, deploy via OIDC)
-- [ ] **Phase 7** — WAF, Shield Advanced, GuardDuty
-
-## Repository Conventions
-
-- **Naming**: `{project}-{environment}-{resource}` (e.g., `aws-lab-dev-alb`)
-- **Module structure**: Every module has exactly `main.tf`, `variables.tf`, `outputs.tf`
-- **No committed secrets**: `.tfvars`, `.tfstate`, and credentials are gitignored
-- **Tagging**: All resources inherit `Environment`, `Project`, `ManagedBy` via provider default tags
-
-## Related
-
-- **[PitziLabs/firewalla-axiom-pipeline](https://github.com/PitziLabs/firewalla-axiom-pipeline)** — Observability pipeline shipping Zeek IDS logs to Axiom — same homelab, different layer
-- **[PitziLabs/setup-crostini-lab](https://github.com/PitziLabs/setup-crostini-lab)** — Chromebook bootstrap script with Terraform, AWS CLI, and kubectl pre-installed
-- **[cpitzi/setup-xubuntu-lab](https://github.com/cpitzi/setup-xubuntu-lab)** — Xubuntu VM workstation bootstrap — where this Terraform gets written
-
-## Credits
-
-Built iteratively with [Claude](https://claude.ai) (Anthropic). Multi-AZ networking, ECS Fargate task definitions, IAM policy scoping, and ACM/Route 53 wiring all developed through pair-programming sessions with real `terraform plan` and `terraform apply` cycles against a live AWS account.
+- [**ice-cream-book**](https://github.com/PitziLabs/ice_cream_book) — Content source for the Astro/Nginx application. Pushes to main trigger cross-repo dispatch to deploy.
+- [**PitziLabs**](https://github.com/PitziLabs) — GitHub organization housing this and related projects.
 
 ## License
 
-MIT License — see [LICENSE](LICENSE).
+This project is open source. See individual files for details.
