@@ -8,7 +8,7 @@
 
 | Item | Value | Notes |
 |------|-------|-------|
-| AWS Account ID | 365184644049 | |
+| AWS Account ID | `<ACCOUNT_ID>` — run `aws sts get-caller-identity --query Account --output text` | |
 | AWS Region | us-east-1 | |
 | Root email | _TBD_ | MFA enabled: ✅ |
 | IAM admin username | cpitzi-iac | MFA enabled: ✅ |
@@ -24,7 +24,7 @@
 
 | Item | Value |
 |------|-------|
-| State bucket name | aws-lab-tfstate-365184644049 |
+| State bucket name | aws-lab-tfstate-`<ACCOUNT_ID>` |
 | State bucket region | us-east-1 |
 | DynamoDB lock table | aws-lab-tfstate-lock |
 | State file key | env/dev/terraform.tfstate |
@@ -56,12 +56,12 @@
 |------|-------|
 | KMS key alias | alias/aws-lab-dev-main |
 | KMS key ID | 366ef9e5-645c-4755-9ad6-4b2ea322af9e |
-| KMS key ARN | arn:aws:kms:us-east-1:365184644049:key/366ef9e5-645c-4755-9ad6-4b2ea322af9e |
-| ECS task execution role | arn:aws:iam::365184644049:role/aws-lab-dev-ecs-task-execution |
-| ECS task role | arn:aws:iam::365184644049:role/aws-lab-dev-ecs-task |
-| GitHub Actions OIDC role | arn:aws:iam::365184644049:role/aws-lab-dev-github-actions |
+| KMS key ARN | arn:aws:kms:us-east-1:`<ACCOUNT_ID>`:key/`<KEY_ID>` |
+| ECS task execution role | arn:aws:iam::`<ACCOUNT_ID>`:role/aws-lab-dev-ecs-task-execution |
+| ECS task role | arn:aws:iam::`<ACCOUNT_ID>`:role/aws-lab-dev-ecs-task |
+| GitHub Actions OIDC role | arn:aws:iam::`<ACCOUNT_ID>`:role/aws-lab-dev-github-actions |
 | Secrets Manager secret name | aws-lab-dev/db-credentials |
-| Secrets Manager secret ARN | arn:aws:secretsmanager:us-east-1:365184644049:secret:aws-lab-dev/db-credentials-xZ4Eby |
+| Secrets Manager secret ARN | arn:aws:secretsmanager:us-east-1:`<ACCOUNT_ID>`:secret:aws-lab-dev/db-credentials-`<SUFFIX>` |
 | ALB security group | sg-09d6b29de9879301c |
 | App security group | sg-0e31af3dc8ce08f3a |
 | RDS security group | sg-08a72bc492fa4fea0 |
@@ -74,7 +74,7 @@
 | Item | Value |
 |------|-------|
 | ECR repo name | aws-lab-dev-app |
-| ECR repo URI | 365184644049.dkr.ecr.us-east-1.amazonaws.com/aws-lab-dev-app |
+| ECR repo URI | `<ACCOUNT_ID>`.dkr.ecr.us-east-1.amazonaws.com/aws-lab-dev-app |
 | ECS cluster name | aws-lab-dev-cluster |
 | ECS service name | aws-lab-dev-app |
 | ECS task definition family | aws-lab-dev-app |
@@ -86,8 +86,8 @@
 | ALB DNS name | aws-lab-dev-alb-1683080614.us-east-1.elb.amazonaws.com |
 | ALB security group | sg-01efcdea06926db65 |
 | Target group name | aws-lab-dev-app-tg |
-| Target group ARN | arn:aws:elasticloadbalancing:us-east-1:365184644049:targetgroup/aws-lab-dev-app-tg/cf6ad19768f77e61 |
-| ACM certificate ARN | arn:aws:acm:us-east-1:365184644049:certificate/d93358e2-09d8-4363-b006-4e987de69258 |
+| Target group ARN | arn:aws:elasticloadbalancing:us-east-1:`<ACCOUNT_ID>`:targetgroup/aws-lab-dev-app-tg/`<TG_ID>` |
+| ACM certificate ARN | arn:aws:acm:us-east-1:`<ACCOUNT_ID>`:certificate/`<CERT_ID>` |
 | Route 53 hosted zone ID | Z0043272378EN4FXXRUG1 |
 | Route 53 nameservers | ns-444.awsdns-55.com, ns-953.awsdns-55.net, ns-1155.awsdns-16.org, ns-1999.awsdns-57.co.uk |
 | Domain name | icecreamtofightover.com |
@@ -110,7 +110,7 @@
 | RDS Multi-AZ | Yes (synchronous standby) |
 | RDS database name | awslab |
 | RDS master username | dbadmin |
-| RDS master secret ARN | arn:aws:secretsmanager:us-east-1:365184644049:secret:rds!db-804d2817-c2dd-4b02-b2fd-0d8d33303288-sCmPlr |
+| RDS master secret ARN | arn:aws:secretsmanager:us-east-1:`<ACCOUNT_ID>`:secret:rds!db-`<SECRET_SUFFIX>` |
 | RDS master secret rotation | Automatic, every 7 days (RDS-managed) |
 | RDS security group | sg-0e62923842c97d48b |
 | DB subnet group | aws-lab-dev-db-subnet-group |
@@ -130,14 +130,14 @@
 | Item | Value |
 |------|-------|
 | SNS topic name | aws-lab-dev-alerts |
-| SNS topic ARN | arn:aws:sns:us-east-1:365184644049:aws-lab-dev-alerts |
+| SNS topic ARN | arn:aws:sns:us-east-1:`<ACCOUNT_ID>`:aws-lab-dev-alerts |
 | Notification email | cpitzi@gmail.com |
 | Email subscription confirmed | Yes (2026-03-19) |
 | CloudWatch alarms (8 total) | ecs-cpu-high, ecs-memory-high, alb-5xx-high, alb-response-slow, rds-cpu-high, rds-storage-low, cache-cpu-high, cache-memory-high |
 | Alarm naming pattern | aws-lab-dev-{service}-{metric} |
 | CloudTrail trail name | aws-lab-dev-trail |
 | CloudTrail S3 prefix | cloudtrail |
-| CloudTrail S3 path | s3://aws-lab-dev-365184644049/cloudtrail/AWSLogs/365184644049/ |
+| CloudTrail S3 path | s3://aws-lab-dev-`<ACCOUNT_ID>`/cloudtrail/AWSLogs/`<ACCOUNT_ID>`/ |
 | CloudTrail multi-region | Yes |
 | CloudTrail log file validation | Yes |
 | CloudTrail encryption | KMS (CMK) |
@@ -278,8 +278,8 @@ _Operational knowledge for day-to-day work with this environment._
 | **Daily teardown** | `terraform destroy` when idle to save ~$2.15/day (NAT Gateways). `terraform apply` recreates everything identically from code. |
 | **Secrets Manager recovery window** | Secret has `recovery_window_in_days = 7`. After `terraform destroy`, the secret name is reserved for 7 days. Next `terraform apply` restores the pending-deletion secret — this is normal. If you hit "already scheduled for deletion" errors, either wait out the window or temporarily set recovery window to `0` for immediate deletion. Only an issue because we're using placeholder values; would not do this with real credentials. |
 | **KMS key deletion** | KMS key has `deletion_window_in_days = 30`. On destroy, Terraform schedules deletion (doesn't delete immediately). On next apply, it cancels the scheduled deletion and restores the key. No data loss, no new key ID needed. |
-| **ECR authentication** | `aws ecr get-login-password --region us-east-1 --profile aws-lab \| docker login --username AWS --password-stdin 365184644049.dkr.ecr.us-east-1.amazonaws.com` — Token valid for 12 hours. Required before docker push/pull to ECR. |
-| **Push image to ECR** | `docker build -t 365184644049.dkr.ecr.us-east-1.amazonaws.com/aws-lab-dev-app:latest .` then `docker push ...`. Build from `app/` directory. |
+| **ECR authentication** | `aws ecr get-login-password --region us-east-1 --profile aws-lab \| docker login --username AWS --password-stdin $(aws sts get-caller-identity --query Account --output text --profile aws-lab).dkr.ecr.us-east-1.amazonaws.com` — Token valid for 12 hours. Required before docker push/pull to ECR. |
+| **Push image to ECR** | `docker build -t $(terraform output -raw ecr_repository_url):latest .` then `docker push ...`. Build from `app/` directory. |
 | **Squarespace NS delegation** | One-time manual step: In Squarespace domain settings, set custom nameservers to the 4 Route 53 NS values. Check propagation with `dig icecreamtofightover.com NS +short`. |
 | **ACM cert validation wait** | `terraform apply` will hang at `aws_acm_certificate_validation` until DNS propagation completes and ACM verifies the CNAME records. Can take 5-45 minutes. Safe to Ctrl+C and re-apply later. |
 | **Docker group on ChromeOS** | User must be in `docker` group: `sudo usermod -aG docker $USER`. Requires terminal restart (or `newgrp docker`) to take effect. |
@@ -288,7 +288,7 @@ _Operational knowledge for day-to-day work with this environment._
 | **SNS subscription on recreate** | After `terraform destroy` + `terraform apply`, the SNS email subscription is recreated in "pending confirmation" state. No alarms are delivered until you click the confirmation link in the new email from AWS. Check Gmail immediately after apply. |
 | **Testing alarm pipeline** | `aws cloudwatch set-alarm-state --alarm-name "aws-lab-dev-ecs-cpu-high" --state-value ALARM --state-reason "Test" --profile aws-lab` — Forces alarm to ALARM state. Auto-recovers on next evaluation period. Useful for validating the SNS→email chain. |
 | **INSUFFICIENT_DATA alarms** | Normal after fresh deploy. Alarms need 1–3 evaluation periods of metric data before transitioning to OK. RDS and ElastiCache alarms may take 5–15 minutes to settle. |
-| **CloudTrail first delivery** | After `terraform apply`, CloudTrail takes 5–15 minutes to deliver the first log files to S3. Check with `aws s3 ls s3://aws-lab-dev-365184644049/cloudtrail/AWSLogs/365184644049/ --recursive --profile aws-lab`. |
+| **CloudTrail first delivery** | After `terraform apply`, CloudTrail takes 5–15 minutes to deliver the first log files to S3. Check with `aws s3 ls s3://$(terraform output -raw s3_bucket_id)/cloudtrail/ --recursive --profile aws-lab`. |
 | **CloudTrail verification** | `aws cloudtrail get-trail-status --name aws-lab-dev-trail --profile aws-lab` — should show `IsLogging: true` and `LatestDeliveryTime` populated within ~15 minutes. |
 
 ---

@@ -4,7 +4,11 @@ set -euo pipefail
 # Configuration
 AWS_PROFILE="aws-lab"
 AWS_REGION="us-east-1"
-ACCOUNT_ID="365184644049"
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text --profile "${AWS_PROFILE}")
+if [[ -z "${ACCOUNT_ID}" ]]; then
+  echo "ERROR: Could not determine AWS account ID. Check your AWS_PROFILE." >&2
+  exit 1
+fi
 BUCKET_NAME="aws-lab-tfstate-${ACCOUNT_ID}"
 TABLE_NAME="aws-lab-tfstate-lock"
 

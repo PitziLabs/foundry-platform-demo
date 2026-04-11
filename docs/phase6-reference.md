@@ -50,7 +50,7 @@ GitHub Actions triggers
            ▼
 ┌─────────────────────────────────┐
 │  Push to ECR                    │
-│  365184644049.dkr.ecr           │
+│  <ACCOUNT_ID>.dkr.ecr           │
 │  .us-east-1.amazonaws.com       │
 │  /aws-lab-dev-app               │
 └──────────┬──────────────────────┘
@@ -75,7 +75,7 @@ GitHub Actions triggers
 |------|-------|
 | Workflow file | `.github/workflows/deploy.yml` |
 | OIDC IAM Role | `aws-lab-dev-github-actions` |
-| OIDC Role ARN | `arn:aws:iam::365184644049:role/aws-lab-dev-github-actions` |
+| OIDC Role ARN | `arn:aws:iam::<ACCOUNT_ID>:role/aws-lab-dev-github-actions` |
 | ECR Repository | `aws-lab-dev-app` |
 | ECS Cluster | `aws-lab-dev-cluster` |
 | ECS Service | `aws-lab-dev-app` |

@@ -69,7 +69,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::365184644049:role/aws-lab-dev-github-actions
+          role-to-assume: arn:aws:iam::365184644049:role/aws-lab-dev-github-actions # Account-specific OIDC role
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to ECR
