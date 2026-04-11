@@ -1,11 +1,11 @@
 # Content Source: ice-cream-book
 
-This document describes how `cloud-platform-demo` consumes content from its companion repository, [`PitziLabs/ice-cream-book`](https://github.com/PitziLabs/ice-cream-book), to build and serve the website at **icecreamtofightover.com**.
+This document describes how `foundry-platform-demo` consumes content from its companion repository, [`PitziLabs/ice-cream-book`](https://github.com/PitziLabs/ice-cream-book), to build and serve the website at **icecreamtofightover.com**.
 
 ## Architecture Overview
 
 ```
-PitziLabs/ice-cream-book          PitziLabs/cloud-platform-demo
+PitziLabs/ice-cream-book          PitziLabs/foundry-platform-demo
 ────────────────────────          ─────────────────────────
 
 recipes/*.md                      app/ice_cream_site/
@@ -65,7 +65,7 @@ Expects both repos cloned as siblings:
 ~/projects/
 ├── ice-cream-book/
 │   └── recipes/*.md
-└── cloud-platform-demo/
+└── foundry-platform-demo/
     └── app/ice_cream_site/
         └── sync_recipes.py   # reads ../ice-cream-book/recipes/
 ```
@@ -126,5 +126,5 @@ The coupling between the two repos is intentionally thin:
 
 - **Single integration point**: `sync_recipes.py` is the only file that knows about `ice-cream-book`
 - **Convention-based**: Parsing relies on Markdown formatting conventions, not a formal schema or API
-- **One-directional**: Content flows from `ice-cream-book` → `cloud-platform-demo`, never the reverse
+- **One-directional**: Content flows from `ice-cream-book` → `foundry-platform-demo`, never the reverse
 - **No git submodule**: The repos are independent; content is synced at build time, not linked at the git level

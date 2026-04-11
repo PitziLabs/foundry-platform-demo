@@ -39,7 +39,7 @@ Supporting infrastructure: VPC networking, IAM, KMS encryption, Secrets Manager,
    - `kubectl`
    - `git`
 
-3. **Create GitHub repo** — Name: `cloud-platform-demo`. Initialize with:
+3. **Create GitHub repo** — Name: `foundry-platform-demo`. Initialize with:
    - `.gitignore` (Terraform-specific)
    - `README.md`
    - `docs/` folder for decision journaling (ADRs — Architecture Decision Records)
@@ -48,7 +48,7 @@ Supporting infrastructure: VPC networking, IAM, KMS encryption, Secrets Manager,
 
 5. **Establish Terraform directory structure:**
    ```
-   cloud-platform-demo/
+   foundry-platform-demo/
    ├── environments/
    │   └── dev/
    │       ├── main.tf
@@ -358,7 +358,7 @@ Supporting infrastructure: VPC networking, IAM, KMS encryption, Secrets Manager,
 
 33. **Tagging strategy — every resource gets:**
     - `Environment` = dev
-    - `Project` = aws-lab
+    - `Project` = foundry
     - `ManagedBy` = terraform
     - Enforce via AWS Config rules and/or Terraform `default_tags`
 

@@ -2,15 +2,15 @@
 set -euo pipefail
 
 # Configuration
-AWS_PROFILE="aws-lab"
+AWS_PROFILE="foundry"
 AWS_REGION="us-east-1"
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text --profile "${AWS_PROFILE}")
 if [[ -z "${ACCOUNT_ID}" ]]; then
   echo "ERROR: Could not determine AWS account ID. Check your AWS_PROFILE." >&2
   exit 1
 fi
-BUCKET_NAME="aws-lab-tfstate-${ACCOUNT_ID}"
-TABLE_NAME="aws-lab-tfstate-lock"
+BUCKET_NAME="foundry-tfstate-${ACCOUNT_ID}"
+TABLE_NAME="foundry-tfstate-lock"
 
 echo "==> Creating S3 bucket for Terraform state..."
 aws s3api create-bucket \

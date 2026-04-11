@@ -323,8 +323,8 @@ data "aws_iam_policy_document" "github_actions" {
       "s3:ListBucket",
     ]
     resources = [
-      "arn:aws:s3:::aws-lab-tfstate-${var.aws_account_id}",
-      "arn:aws:s3:::aws-lab-tfstate-${var.aws_account_id}/*",
+      "arn:aws:s3:::foundry-tfstate-${var.aws_account_id}",
+      "arn:aws:s3:::foundry-tfstate-${var.aws_account_id}/*",
     ]
   }
 
@@ -336,7 +336,7 @@ data "aws_iam_policy_document" "github_actions" {
       "dynamodb:DeleteItem",
     ]
     resources = [
-      "arn:aws:dynamodb:${var.aws_region}:${var.aws_account_id}:table/aws-lab-tfstate-lock",
+      "arn:aws:dynamodb:${var.aws_region}:${var.aws_account_id}:table/foundry-tfstate-lock",
     ]
   }
 }
@@ -448,7 +448,7 @@ data "aws_iam_policy_document" "github_actions_terraform" {
     ]
 
     resources = [
-      "arn:aws:dynamodb:${var.aws_region}:${var.aws_account_id}:table/aws-lab-tfstate-lock",
+      "arn:aws:dynamodb:${var.aws_region}:${var.aws_account_id}:table/foundry-tfstate-lock",
     ]
   }
 

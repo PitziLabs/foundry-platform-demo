@@ -29,9 +29,9 @@ permissions:
 
 env:
   AWS_REGION: us-east-1
-  ECR_REPO: aws-lab-dev-app
-  ECS_CLUSTER: aws-lab-dev-cluster
-  ECS_SERVICE: aws-lab-dev-app
+  ECR_REPO: foundry-dev-app
+  ECS_CLUSTER: foundry-dev-cluster
+  ECS_SERVICE: foundry-dev-app
 
 jobs:
   deploy:
@@ -69,7 +69,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::365184644049:role/aws-lab-dev-github-actions # Account-specific OIDC role
+          role-to-assume: arn:aws:iam::365184644049:role/foundry-dev-github-actions # Account-specific OIDC role
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to ECR
