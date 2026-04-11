@@ -41,7 +41,7 @@ Verify access:
 aws sts get-caller-identity --profile aws-lab
 ```
 
-Note your **Account ID** from the output. You'll need it throughout this guide. The examples below use `365184644049` — replace with yours.
+Note your **Account ID** from the output. You'll need it throughout this guide. The examples below use `<ACCOUNT_ID>` as a placeholder — replace with yours.
 
 ---
 

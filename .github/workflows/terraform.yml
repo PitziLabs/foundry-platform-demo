@@ -43,7 +43,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::365184644049:role/aws-lab-dev-github-actions-terraform
+          role-to-assume: arn:aws:iam::365184644049:role/aws-lab-dev-github-actions-terraform # Account-specific OIDC role
           aws-region: us-east-1
 
       - name: Setup Terraform
@@ -106,7 +106,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::365184644049:role/aws-lab-dev-github-actions-terraform
+          role-to-assume: arn:aws:iam::365184644049:role/aws-lab-dev-github-actions-terraform # Account-specific OIDC role
           aws-region: us-east-1
 
       - name: Setup Terraform

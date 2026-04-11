@@ -18,7 +18,7 @@ Data Layer section.
 | RDS Multi-AZ | Yes (synchronous standby) |
 | RDS database name | awslab |
 | RDS master username | dbadmin |
-| RDS master secret ARN | arn:aws:secretsmanager:us-east-1:365184644049:secret:rds!db-804d2817-c2dd-4b02-b2fd-0d8d33303288-sCmPlr |
+| RDS master secret ARN | arn:aws:secretsmanager:us-east-1:`<ACCOUNT_ID>`:secret:rds!db-`<SECRET_SUFFIX>` |
 | RDS master secret rotation | Automatic, every 7 days (RDS-managed) |
 | RDS security group | sg-0e62923842c97d48b |
 | DB subnet group | aws-lab-dev-db-subnet-group |

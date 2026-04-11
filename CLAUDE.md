@@ -50,7 +50,7 @@ All Terraform commands run from `environments/dev/` (the only environment entry 
 | AWS profile | aws-lab |
 | Domain | icecreamtofightover.com |
 | GitHub org/repo | PitziLabs/cloud-platform-demo |
-| State bucket | aws-lab-tfstate-365184644049 |
+| State bucket | aws-lab-tfstate-`<ACCOUNT_ID>` |
 | Lock table | aws-lab-tfstate-lock |
 | AZs | us-east-1a, us-east-1b |
 
