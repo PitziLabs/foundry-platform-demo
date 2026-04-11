@@ -1,6 +1,6 @@
 # Bootstrap Runbook
 
-This guide walks through deploying the cloud-platform-demo stack from scratch. It covers every manual step required before Terraform can manage the environment autonomously.
+This guide walks through deploying the foundry-platform-demo stack from scratch. It covers every manual step required before Terraform can manage the environment autonomously.
 
 **Audience:** Engineers evaluating this project, or anyone standing up their own instance of the stack.
 
@@ -30,7 +30,7 @@ If you're using an existing account, skip to Step 2.
 Configure the AWS CLI with a named profile:
 
 ```bash
-aws configure --profile aws-lab
+aws configure --profile foundry
 # Region: us-east-1
 # Output: json
 ```
@@ -38,7 +38,7 @@ aws configure --profile aws-lab
 Verify access:
 
 ```bash
-aws sts get-caller-identity --profile aws-lab
+aws sts get-caller-identity --profile foundry
 ```
 
 Note your **Account ID** from the output. You'll need it throughout this guide. The examples below use `<ACCOUNT_ID>` as a placeholder — replace with yours.
@@ -50,26 +50,26 @@ Note your **Account ID** from the output. You'll need it throughout this guide. 
 Terraform needs a remote backend before it can manage anything. These resources are intentionally created outside of Terraform (chicken-and-egg problem).
 
 ```bash
-export AWS_PROFILE=aws-lab
+export AWS_PROFILE=foundry
 export ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 
 # S3 bucket for state files
 aws s3api create-bucket \
-  --bucket "aws-lab-tfstate-${ACCOUNT_ID}" \
+  --bucket "foundry-tfstate-${ACCOUNT_ID}" \
   --region us-east-1
 
 aws s3api put-bucket-versioning \
-  --bucket "aws-lab-tfstate-${ACCOUNT_ID}" \
+  --bucket "foundry-tfstate-${ACCOUNT_ID}" \
   --versioning-configuration Status=Enabled
 
 aws s3api put-bucket-encryption \
-  --bucket "aws-lab-tfstate-${ACCOUNT_ID}" \
+  --bucket "foundry-tfstate-${ACCOUNT_ID}" \
   --server-side-encryption-configuration '{
     "Rules": [{"ApplyServerSideEncryptionByDefault": {"SSEAlgorithm": "AES256"}}]
   }'
 
 aws s3api put-public-access-block \
-  --bucket "aws-lab-tfstate-${ACCOUNT_ID}" \
+  --bucket "foundry-tfstate-${ACCOUNT_ID}" \
   --public-access-block-configuration '{
     "BlockPublicAcls": true,
     "IgnorePublicAcls": true,
@@ -79,7 +79,7 @@ aws s3api put-public-access-block \
 
 # DynamoDB table for state locking
 aws dynamodb create-table \
-  --table-name aws-lab-tfstate-lock \
+  --table-name foundry-tfstate-lock \
   --attribute-definitions AttributeName=LockID,AttributeType=S \
   --key-schema AttributeName=LockID,KeyType=HASH \
   --billing-mode PAY_PER_REQUEST \
@@ -91,8 +91,8 @@ aws dynamodb create-table \
 ## Step 3: Clone the Repository
 
 ```bash
-git clone https://github.com/PitziLabs/cloud-platform-demo.git
-cd cloud-platform-demo
+git clone https://github.com/PitziLabs/foundry-platform-demo.git
+cd foundry-platform-demo
 ```
 
 ---
@@ -106,7 +106,7 @@ cat environments/dev/terraform.tfvars
 ```
 
 At minimum, update:
-- `project` — your project name (default: `aws-lab`)
+- `project` — your project name (default: `foundry`)
 - `environment` — environment name (default: `dev`)
 - `domain_name` — your registered domain
 - Any resource sizing (RDS instance class, ElastiCache node type, etc.)
@@ -115,10 +115,10 @@ Update the backend configuration in `environments/dev/main.tf` to reference your
 
 ```hcl
 backend "s3" {
-  bucket         = "aws-lab-tfstate-YOUR_ACCOUNT_ID"
+  bucket         = "foundry-tfstate-YOUR_ACCOUNT_ID"
   key            = "environments/dev/terraform.tfstate"
   region         = "us-east-1"
-  dynamodb_table = "aws-lab-tfstate-lock"
+  dynamodb_table = "foundry-tfstate-lock"
   encrypt        = true
 }
 ```
@@ -131,7 +131,7 @@ This first apply runs from your local machine using your AWS CLI profile. It cre
 
 ```bash
 cd environments/dev
-export AWS_PROFILE=aws-lab
+export AWS_PROFILE=foundry
 
 terraform init
 terraform plan
@@ -182,7 +182,7 @@ cat > /tmp/terraform-role-trust.json << 'EOF'
       "Condition": {
         "StringEquals": {
           "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
-          "token.actions.githubusercontent.com:sub": "repo:YOUR_ORG/cloud-platform-demo:environment:terraform"
+          "token.actions.githubusercontent.com:sub": "repo:YOUR_ORG/foundry-platform-demo:environment:terraform"
         }
       }
     }
@@ -237,7 +237,7 @@ cat > /tmp/terraform-role-policy.json << 'EOF'
         "dynamodb:DeleteItem",
         "dynamodb:DescribeTable"
       ],
-      "Resource": "arn:aws:dynamodb:us-east-1:YOUR_ACCOUNT_ID:table/aws-lab-tfstate-lock"
+      "Resource": "arn:aws:dynamodb:us-east-1:YOUR_ACCOUNT_ID:table/foundry-tfstate-lock"
     },
     {
       "Sid": "CallerIdentity",
@@ -254,17 +254,17 @@ EOF
 
 ```bash
 aws iam create-role \
-  --role-name aws-lab-dev-github-actions-terraform \
+  --role-name foundry-dev-github-actions-terraform \
   --assume-role-policy-document file:///tmp/terraform-role-trust.json
 
 aws iam create-policy \
-  --policy-name aws-lab-dev-github-actions-terraform \
+  --policy-name foundry-dev-github-actions-terraform \
   --policy-document file:///tmp/terraform-role-policy.json
 
 # Use the policy ARN from the create-policy output
 aws iam attach-role-policy \
-  --role-name aws-lab-dev-github-actions-terraform \
-  --policy-arn "arn:aws:iam::YOUR_ACCOUNT_ID:policy/aws-lab-dev-github-actions-terraform"
+  --role-name foundry-dev-github-actions-terraform \
+  --policy-arn "arn:aws:iam::YOUR_ACCOUNT_ID:policy/foundry-dev-github-actions-terraform"
 ```
 
 ### 7d. Import into Terraform
@@ -274,15 +274,15 @@ cd environments/dev
 
 terraform import \
   module.iam.aws_iam_role.github_actions_terraform \
-  aws-lab-dev-github-actions-terraform
+  foundry-dev-github-actions-terraform
 
 terraform import \
   module.iam.aws_iam_policy.github_actions_terraform \
-  "arn:aws:iam::YOUR_ACCOUNT_ID:policy/aws-lab-dev-github-actions-terraform"
+  "arn:aws:iam::YOUR_ACCOUNT_ID:policy/foundry-dev-github-actions-terraform"
 
 terraform import \
   module.iam.aws_iam_role_policy_attachment.github_actions_terraform \
-  "aws-lab-dev-github-actions-terraform/arn:aws:iam::YOUR_ACCOUNT_ID:policy/aws-lab-dev-github-actions-terraform"
+  "foundry-dev-github-actions-terraform/arn:aws:iam::YOUR_ACCOUNT_ID:policy/foundry-dev-github-actions-terraform"
 ```
 
 Verify the import is clean:
@@ -337,7 +337,7 @@ Merge the PR. The Terraform Apply job should:
 
 ### App deploy pipeline
 
-Push a change to the content source repo (e.g., `ice-cream-book`). The cross-repo dispatch should trigger the app deploy workflow in `cloud-platform-demo`, building and deploying the container to ECS.
+Push a change to the content source repo (e.g., `ice-cream-book`). The cross-repo dispatch should trigger the app deploy workflow in `foundry-platform-demo`, building and deploying the container to ECS.
 
 ---
 
@@ -347,7 +347,7 @@ The most expensive resources are RDS, ElastiCache, NAT Gateways, and the ALB. To
 
 ```bash
 cd environments/dev
-export AWS_PROFILE=aws-lab
+export AWS_PROFILE=foundry
 terraform destroy
 ```
 

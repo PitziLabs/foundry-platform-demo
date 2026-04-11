@@ -52,7 +52,7 @@ GitHub Actions triggers
 │  Push to ECR                    │
 │  <ACCOUNT_ID>.dkr.ecr           │
 │  .us-east-1.amazonaws.com       │
-│  /aws-lab-dev-app               │
+│  /foundry-dev-app               │
 └──────────┬──────────────────────┘
            │
            ▼
@@ -74,15 +74,15 @@ GitHub Actions triggers
 | Item | Value |
 |------|-------|
 | Workflow file | `.github/workflows/deploy.yml` |
-| OIDC IAM Role | `aws-lab-dev-github-actions` |
-| OIDC Role ARN | `arn:aws:iam::<ACCOUNT_ID>:role/aws-lab-dev-github-actions` |
-| ECR Repository | `aws-lab-dev-app` |
-| ECS Cluster | `aws-lab-dev-cluster` |
-| ECS Service | `aws-lab-dev-app` |
+| OIDC IAM Role | `foundry-dev-github-actions` |
+| OIDC Role ARN | `arn:aws:iam::<ACCOUNT_ID>:role/foundry-dev-github-actions` |
+| ECR Repository | `foundry-dev-app` |
+| ECS Cluster | `foundry-dev-cluster` |
+| ECS Service | `foundry-dev-app` |
 | AWS Region | `us-east-1` |
 | Live site | `https://icecreamtofightover.com` |
 | Content source repo | `PitziLabs/ice-cream-book` |
-| Infra repo | `PitziLabs/cloud-platform-demo` |
+| Infra repo | `PitziLabs/foundry-platform-demo` |
 
 ## How It Works — The Short Version
 
@@ -102,11 +102,11 @@ There IS a multi-stage Dockerfile at `app/ice_cream_site/Dockerfile` that does a
 ## OIDC Authentication — How It Actually Works
 
 1. GitHub Actions runner requests a JWT from `token.actions.githubusercontent.com`
-2. The JWT includes claims: repo (`PitziLabs/cloud-platform-demo`), branch, workflow, actor
+2. The JWT includes claims: repo (`PitziLabs/foundry-platform-demo`), branch, workflow, actor
 3. `aws-actions/configure-aws-credentials@v4` sends the JWT to AWS STS
 4. AWS validates the JWT against our OIDC provider (created in Phase 2)
-5. AWS checks the trust policy: `repo:PitziLabs/cloud-platform-demo:*`
-6. STS issues temporary credentials scoped to the `aws-lab-dev-github-actions` role
+5. AWS checks the trust policy: `repo:PitziLabs/foundry-platform-demo:*`
+6. STS issues temporary credentials scoped to the `foundry-dev-github-actions` role
 7. Credentials expire when the workflow ends
 
 **No secrets stored in GitHub. No keys to rotate. No long-lived credentials anywhere.**
@@ -149,8 +149,8 @@ The workflow does NOT trigger for:
 
 ### OIDC "Not authorized to perform sts:AssumeRoleWithWebIdentity"
 
-**Known issue**: IAM roles with "github" in the name can fail OIDC authentication due to a bug in `configure-aws-credentials`. Our role IS named `aws-lab-dev-github-actions`. If this breaks:
-1. Rename the role in `modules/iam/main.tf` (e.g., `aws-lab-dev-cicd-deploy`)
+**Known issue**: IAM roles with "github" in the name can fail OIDC authentication due to a bug in `configure-aws-credentials`. Our role IS named `foundry-dev-github-actions`. If this breaks:
+1. Rename the role in `modules/iam/main.tf` (e.g., `foundry-dev-cicd-deploy`)
 2. `terraform apply`
 3. Update the role ARN in `.github/workflows/deploy.yml`
 4. See: https://github.com/aws-actions/configure-aws-credentials/issues/953
@@ -168,9 +168,9 @@ If the build can't find files, check that the Astro build step actually produced
 ### ECS deployment not picking up new image
 
 If ECS tasks are running but showing old content:
-1. Verify image was pushed: `aws ecr describe-images --repository-name aws-lab-dev-app --profile aws-lab`
-2. Check ECS events: `aws ecs describe-services --cluster aws-lab-dev-cluster --service aws-lab-dev-app --query 'services[0].events[:5]' --profile aws-lab`
-3. Force manual redeploy: `aws ecs update-service --cluster aws-lab-dev-cluster --service aws-lab-dev-app --force-new-deployment --profile aws-lab`
+1. Verify image was pushed: `aws ecr describe-images --repository-name foundry-dev-app --profile foundry`
+2. Check ECS events: `aws ecs describe-services --cluster foundry-dev-cluster --service foundry-dev-app --query 'services[0].events[:5]' --profile foundry`
+3. Force manual redeploy: `aws ecs update-service --cluster foundry-dev-cluster --service foundry-dev-app --force-new-deployment --profile foundry`
 
 ### Recipe sync fails
 
@@ -207,34 +207,34 @@ The `sync_recipes.py` script reads from the `RECIPE_SOURCE` environment variable
 ```bash
 # Check what's currently deployed
 aws ecs describe-services \
-  --cluster aws-lab-dev-cluster \
-  --service aws-lab-dev-app \
+  --cluster foundry-dev-cluster \
+  --service foundry-dev-app \
   --query 'services[0].deployments' \
-  --profile aws-lab
+  --profile foundry
 
 # List recent images in ECR
 aws ecr describe-images \
-  --repository-name aws-lab-dev-app \
+  --repository-name foundry-dev-app \
   --query 'sort_by(imageDetails, &imagePushedAt)[-5:].[imageTags, imagePushedAt]' \
-  --profile aws-lab
+  --profile foundry
 
 # Force a manual redeploy
 aws ecs update-service \
-  --cluster aws-lab-dev-cluster \
-  --service aws-lab-dev-app \
+  --cluster foundry-dev-cluster \
+  --service foundry-dev-app \
   --force-new-deployment \
-  --profile aws-lab
+  --profile foundry
 
 # Watch deployment progress
 watch -n 5 "aws ecs describe-services \
-  --cluster aws-lab-dev-cluster \
-  --service aws-lab-dev-app \
+  --cluster foundry-dev-cluster \
+  --service foundry-dev-app \
   --query 'services[0].deployments[*].[status, runningCount, desiredCount]' \
   --output table \
-  --profile aws-lab"
+  --profile foundry"
 
 # Check container logs
-aws logs tail /ecs/aws-lab-dev-app --follow --profile aws-lab
+aws logs tail /ecs/foundry-dev-app --follow --profile foundry
 ```
 
 ## What's Next

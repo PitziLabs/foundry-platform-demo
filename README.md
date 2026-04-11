@@ -1,4 +1,4 @@
-# cloud-platform-demo
+# foundry-platform-demo
 
 A production-grade, Terraform-managed AWS environment built as a portfolio project and learning lab. It hosts a live application at [icecreamtofightover.com](https://icecreamtofightover.com) and demonstrates the kind of infrastructure an ops veteran builds when they bring decades of production experience to modern cloud tooling.
 
@@ -73,7 +73,7 @@ A three-tier web application running on AWS, fully managed by Terraform:
 ## Repository Structure
 
 ```
-cloud-platform-demo/
+foundry-platform-demo/
 ├── environments/
 │   └── dev/
 │       ├── main.tf              # Root module — wires all modules together

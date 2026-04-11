@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-AWS Lab Infrastructure — Terraform-based IaC project building a production-grade, three-tier AWS environment. Phases 0–3 (networking, encryption, IAM, secrets, compute/containers) are complete. Phases 4–7 (data, observability, CI/CD, security hardening) have placeholder modules.
+Foundry Platform — Terraform-based IaC project building a production-grade, three-tier AWS environment. All phases (networking, encryption, IAM, secrets, compute/containers, data, observability, CI/CD, security hardening) are complete.
 
 ## Common Commands
 
@@ -31,7 +31,7 @@ terraform fmt -check -recursive
 terraform output
 
 # Push container image to ECR
-aws ecr get-login-password --region us-east-1 --profile aws-lab | \
+aws ecr get-login-password --region us-east-1 --profile foundry | \
   docker login --username AWS --password-stdin $(terraform output -raw ecr_repository_url)
 docker build -t my-app ./app
 docker tag my-app:latest $(terraform output -raw ecr_repository_url):latest
@@ -47,11 +47,11 @@ All Terraform commands run from `environments/dev/` (the only environment entry 
 | Terraform version | >= 1.0 |
 | AWS provider | ~> 5.0 (locked at 5.100.0) |
 | AWS region | us-east-1 |
-| AWS profile | aws-lab |
+| AWS profile | foundry |
 | Domain | icecreamtofightover.com |
-| GitHub org/repo | PitziLabs/cloud-platform-demo |
-| State bucket | aws-lab-tfstate-`<ACCOUNT_ID>` |
-| Lock table | aws-lab-tfstate-lock |
+| GitHub org/repo | PitziLabs/foundry-platform-demo |
+| State bucket | foundry-tfstate-`<ACCOUNT_ID>` |
+| Lock table | foundry-tfstate-lock |
 | AZs | us-east-1a, us-east-1b |
 
 ## Network Layout
@@ -83,7 +83,7 @@ DNS ←──→ ALB (certificate ↔ alias record)
 
 ## Architecture Conventions
 
-**Naming**: `{project}-{environment}-{resource-type}` (e.g., `aws-lab-dev-ecs-cluster`).
+**Naming**: `{project}-{environment}-{resource-type}` (e.g., `foundry-dev-ecs-cluster`).
 
 **Tagging**: Applied via provider `default_tags` in `environments/dev/main.tf` (`Environment`, `Project`, `ManagedBy`). Individual resources add a `Name` tag.
 
@@ -118,7 +118,7 @@ DNS ←──→ ALB (certificate ↔ alias record)
 | 1 | VPC, KMS, Secrets Manager | Complete |
 | 2 | IAM roles, Security Groups | Complete |
 | 3 | ECR, DNS/ACM, ALB, ECS Fargate, Auto-Scaling | Complete |
-| 4 | RDS PostgreSQL, ElastiCache Redis | Planned |
-| 5 | CloudWatch monitoring, alarms | Planned |
-| 6 | GitHub Actions CI/CD workflows | Planned |
-| 7 | WAF, Shield, GuardDuty | Planned |
+| 4 | RDS PostgreSQL, ElastiCache Redis | Complete |
+| 5 | CloudWatch monitoring, alarms | Complete |
+| 6 | GitHub Actions CI/CD workflows | Complete |
+| 7 | WAF, Shield, GuardDuty | Complete |
